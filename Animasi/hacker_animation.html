@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Terminal Animation - Hacker System</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --dark-bg: #050505;
+            --gold: #ffcc00;
+            --glow: rgba(0, 255, 65, 0.4);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: var(--dark-bg);
+            color: var(--neon-green);
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Matrix Background */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            opacity: 0.15;
+        }
+
+        /* CRT Overlay */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 100;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .container {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        header {
+            border-bottom: 1px solid var(--neon-green);
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--neon-green);
+        }
+
+        #terminal {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 20px;
+        }
+
+        .line {
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            padding: 15px;
+            background: rgba(0, 255, 65, 0.03);
+            border-left: 3px solid var(--neon-green);
+            border-radius: 0 10px 10px 0;
+        }
+
+        .line.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .line.fade-out {
+            opacity: 0;
+            transform: translateY(-50px) scale(0.9);
+            filter: blur(5px);
+        }
+
+        .prompt {
+            color: var(--neon-green);
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .command {
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .description {
+            display: block;
+            margin-top: 5px;
+            color: var(--gold);
+            font-size: 0.9rem;
+            opacity: 0.8;
+            font-style: italic;
+        }
+
+        /* Input Controls (Modal) */
+        #inputModal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 15, 20, 0.95);
+            padding: 30px;
+            border: 2px solid var(--neon-green);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 255, 65, 0.3);
+            z-index: 1000;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            color: var(--neon-green);
+            border: 1px solid var(--neon-green);
+            padding: 10px;
+            font-family: monospace;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        .btn-start {
+            width: 100%;
+            padding: 15px;
+            background: var(--neon-green);
+            color: #000;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2em;
+            background: var(--neon-green);
+            vertical-align: middle;
+            animation: blink 0.8s step-end infinite;
+            margin-left: 5px;
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="matrix"></canvas>
+
+<div id="inputModal">
+    <h2 style="font-family: 'Orbitron'; margin-bottom: 15px;">INPUT COMMAND DATA</h2>
+    <p style="font-size: 0.8rem; margin-bottom: 10px;">Format: perintah | penjelasan (per baris)</p>
+    <textarea id="dataInput" placeholder="pkg update | Syncing repositories...&#10;ls -la | Listing all hidden files..."></textarea>
+    <button class="btn-start" onclick="startAnimation()">INITIALIZE SYSTEM</button>
+</div>
+
+<div class="container" id="mainApp" style="display: none;">
+    <header>
+        <div class="header-title">TERMINAL OVERRIDE v4.0</div>
+        <div id="status">STATUS: STREAMING DATA</div>
+    </header>
+
+    <div id="terminal"></div>
+</div>
+
+<script>
+    // --- Matrix Background Logic ---
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const chars = "0101010101ABCDEFHIJKLMN";
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+
+    function drawMatrix() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#00ff41";
+        ctx.font = fontSize + "px monospace";
+        for (let i = 0; i < drops.length; i++) {
+            const text = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    }
+    setInterval(drawMatrix, 50);
+
+    // --- Animation Logic ---
+    const terminal = document.getElementById('terminal');
+    let activeLines = [];
+    const MAX_LINES = 5;
+
+    async function typeEffect(element, text, speed = 40) {
+        for (let i = 0; i < text.length; i++) {
+            element.innerHTML += text.charAt(i);
+            await new Promise(r => setTimeout(r, speed + Math.random() * 30));
+        }
+    }
+
+    async function startAnimation() {
+        const input = document.getElementById('dataInput').value;
+        const lines = input.split('\n').filter(l => l.includes('|'));
+        
+        if (lines.length === 0) return alert("Masukkan data dengan format: perintah | penjelasan");
+
+        document.getElementById('inputModal').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'flex';
+
+        for (const rawLine of lines) {
+            const [cmd, desc] = rawLine.split('|');
+
+            // Handle limit: hapus baris terlama jika > 5
+            if (activeLines.length >= MAX_LINES) {
+                const oldest = activeLines.shift();
+                oldest.classList.add('fade-out');
+                setTimeout(() => oldest.remove(), 500);
+            }
+
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'line';
+            lineDiv.innerHTML = `
+                <span class="prompt">></span>
+                <span class="command"></span>
+                <span class="cursor"></span>
+                <span class="description"></span>
+            `;
+            
+            terminal.appendChild(lineDiv);
+            activeLines.push(lineDiv);
+            
+            // Trigger entry animation
+            setTimeout(() => lineDiv.classList.add('active'), 10);
+
+            const cmdSpan = lineDiv.querySelector('.command');
+            const descSpan = lineDiv.querySelector('.description');
+            const cursor = lineDiv.querySelector('.cursor');
+
+            // Type the command
+            await typeEffect(cmdSpan, cmd.trim());
+            cursor.remove(); // Hapus kursor setelah perintah selesai diketik
+            
+            // Type the description
+            await typeEffect(descSpan, "// " + desc.trim(), 20);
+
+            await new Promise(r => setTimeout(r, 1000)); // Jeda antar baris
+        }
+    }
+</script>
+
+</body>
+</html>
